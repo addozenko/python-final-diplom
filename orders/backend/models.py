@@ -1,9 +1,8 @@
 from django.contrib.auth.base_user import BaseUserManager
-from django.contrib.auth.models import AbstractBaseUser
+from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-from django_rest_passwordreset.tokens import get_token_generator
 
 STATE_CHOICES = (
     ('basket', 'Статус корзины'),
@@ -31,9 +30,6 @@ class UserManager(BaseUserManager):
     use_in_migrations = True
 
     def _create_user(self, email, password, **extra_fields):
-        """
-        Create and save a user with the given username, email, and password.
-        """
         if not email:
             raise ValueError('The given email must be set')
         email = self.normalize_email(email)
@@ -59,7 +55,7 @@ class UserManager(BaseUserManager):
         return self._create_user(email, password, **extra_fields)
 
 
-class User(AbstractBaseUser):
+class User(AbstractUser):
     """
     Стандартная модель пользователей
     """
@@ -69,6 +65,8 @@ class User(AbstractBaseUser):
     email = models.EmailField(_('email address'), unique=True)
     company = models.CharField(verbose_name='Компания', max_length=40, blank=True)
     position = models.CharField(verbose_name='Должность', max_length=40, blank=True)
+    first_name = models.CharField(verbose_name='Имя', max_length=40, blank=True)
+    last_name = models.CharField(verbose_name='Фамилия', max_length=40, blank=True)
     username_validator = UnicodeUsernameValidator()
     username = models.CharField(
         _('username'),
@@ -77,7 +75,7 @@ class User(AbstractBaseUser):
         validators=[username_validator],
         error_messages={
             'unique': _("A user with that username already exists."),
-        },
+        }, unique=True
     )
     is_active = models.BooleanField(
         _('active'),
