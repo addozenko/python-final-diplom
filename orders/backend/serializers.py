@@ -1,39 +1,84 @@
 from rest_framework import serializers
-from django.contrib.auth import authenticate
-from .models import User
+from .models import User, Contact, Shop, Category, Product, Order, ProductInfo, ProductParameter, OrderItem
 
+class ContactSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Contact
+        fields = ('id', 'city', 'street', 'house', 'structure', 'building', 'apartment', 'user', 'phone')
+        read_only_fields = ('id',)
+        extra_kwargs = {
+            'user': {'write_only': True}
+        }
 
-class UserRegistrationSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
+class UserSerializer(serializers.ModelSerializer):
+    contacts = ContactSerializer(read_only=True, many=True)
+
     class Meta:
         model = User
-        fields = ('email', 'password', 'first_name', 'last_name', 'username', 'is_staff', 'is_superuser')
+        fields = ('id', 'first_name', 'last_name', 'email', 'company', 'position', 'contacts')
+        read_only_fields = ('id',)
+
+
+class ShopSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Shop
+        fields = ('id', 'name', 'url')
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ('id', 'name',)
+
+
+class ProductSerializer(serializers.ModelSerializer):
+    category = serializers.StringRelatedField()
+
+    class Meta:
+        model = Product
+        fields = ('name', 'category',)
+
+
+class ProductParameterSerializer(serializers.ModelSerializer):
+    parameter = serializers.StringRelatedField()
+
+    class Meta:
+        model = ProductParameter
+        fields = ('parameter', 'value',)
+
+
+class ProductInfoSerializer(serializers.ModelSerializer):
+    product = ProductSerializer(read_only=True)
+    product_parameters = ProductParameterSerializer(read_only=True, many=True)
+
+    class Meta:
+        model = ProductInfo
+        fields = ('id', 'model', 'product', 'shop', 'quantity', 'price', 'price_rrc', 'product_parameters',)
+        read_only_fields = ('id',)
+
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderItem
+        fields = ('id', 'product_info', 'quantity', 'order',)
+        read_only_fields = ('id',)
         extra_kwargs = {
-            'password': {'write_only': True}
+            'order': {'write_only': True}
         }
-    def create(self, validated_data):
-        is_staff = validated_data.pop('is_staff', False)
-        is_superuser = validated_data.pop('is_superuser', False)
-        user = User.objects.create_user(
-            email=validated_data.get('email', ''),
-            first_name=validated_data.get('first_name',''),
-            last_name=validated_data.get('last_name',''),
-            company=validated_data.get('company',''),
-            position=validated_data.get('position',''),
-        )
-        user.is_staff = is_staff
-        user.is_superuser = is_superuser
-        user.save()
-        return user
 
 
-class UserLoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
-    def validate(self, data):
-        user = authenticate(email=data.get('email'), password=data.get('password'))
-        if user is None:
-            raise serializers.ValidationError("Invalid credentials")
-        if not user.is_active:
-            raise serializers.ValidationError("User is inactive")
-        return {'user': user}
+class OrderItemCreateSerializer(OrderItemSerializer):
+    product_info = ProductInfoSerializer(read_only=True)
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    ordered_items = OrderItemCreateSerializer(read_only=True, many=True)
+
+    total_sum = serializers.IntegerField()
+    contact = ContactSerializer(read_only=True)
+
+    class Meta:
+        model = Order
+        fields = ('id', 'ordered_items', 'state', 'dt', 'total_sum', 'contact',)
+        read_only_fields = ('id',)
+

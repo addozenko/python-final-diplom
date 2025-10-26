@@ -3,6 +3,7 @@ from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django_rest_passwordreset.tokens import get_token_generator
 
 STATE_CHOICES = (
     ('basket', 'Статус корзины'),
@@ -20,6 +21,7 @@ USER_TYPE_CHOICES = (
 
 )
 
+
 # Create your models here.
 
 
@@ -30,6 +32,9 @@ class UserManager(BaseUserManager):
     use_in_migrations = True
 
     def _create_user(self, email, password, **extra_fields):
+        """
+        Create and save a user with the given username, email, and password.
+        """
         if not email:
             raise ValueError('The given email must be set')
         email = self.normalize_email(email)
@@ -65,8 +70,6 @@ class User(AbstractUser):
     email = models.EmailField(_('email address'), unique=True)
     company = models.CharField(verbose_name='Компания', max_length=40, blank=True)
     position = models.CharField(verbose_name='Должность', max_length=40, blank=True)
-    first_name = models.CharField(verbose_name='Имя', max_length=40, blank=True)
-    last_name = models.CharField(verbose_name='Фамилия', max_length=40, blank=True)
     username_validator = UnicodeUsernameValidator()
     username = models.CharField(
         _('username'),
@@ -75,11 +78,11 @@ class User(AbstractUser):
         validators=[username_validator],
         error_messages={
             'unique': _("A user with that username already exists."),
-        }, unique=True
+        },
     )
     is_active = models.BooleanField(
         _('active'),
-        default=False,
+        default=True,
         help_text=_(
             'Designates whether this user should be treated as active. '
             'Unselect this instead of deleting accounts.'
@@ -98,6 +101,13 @@ class User(AbstractUser):
 
 class Shop(models.Model):
     name = models.CharField(max_length=50, verbose_name='Название')
+    url = models.URLField(verbose_name='Ссылка', null=True, blank=True)
+    user = models.OneToOneField(User, verbose_name='Пользователь',
+                                blank=True, null=True,
+                                on_delete=models.CASCADE)
+    state = models.BooleanField(verbose_name='статус получения заказов', default=True)
+
+    # filename
 
     class Meta:
         verbose_name = 'Магазин'
@@ -122,15 +132,9 @@ class Category(models.Model):
 
 
 class Product(models.Model):
-    shop = models.ForeignKey(Shop, related_name="products", on_delete=models.CASCADE)
     name = models.CharField(max_length=80, verbose_name='Название')
     category = models.ForeignKey(Category, verbose_name='Категория', related_name='products', blank=True,
                                  on_delete=models.CASCADE)
-    model = models.CharField(max_length=255, verbose_name='Модель')
-    price = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Цена')
-    price_rrc = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name='Рекомендованная розничная цена')
-    quantity = models.PositiveIntegerField(default=0, verbose_name='Количество')
-    parameters = models.JSONField(default=dict, blank=True, verbose_name='Параметры')
 
     class Meta:
         verbose_name = 'Продукт'
@@ -139,6 +143,53 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class ProductInfo(models.Model):
+    model = models.CharField(max_length=80, verbose_name='Модель', blank=True)
+    external_id = models.PositiveIntegerField(verbose_name='Внешний ИД')
+    product = models.ForeignKey(Product, verbose_name='Продукт', related_name='product_infos', blank=True,
+                                on_delete=models.CASCADE)
+    shop = models.ForeignKey(Shop, verbose_name='Магазин', related_name='product_infos', blank=True,
+                             on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(verbose_name='Количество')
+    price = models.PositiveIntegerField(verbose_name='Цена')
+    price_rrc = models.PositiveIntegerField(verbose_name='Рекомендуемая розничная цена')
+
+    class Meta:
+        verbose_name = 'Информация о продукте'
+        verbose_name_plural = "Информационный список о продуктах"
+        constraints = [
+            models.UniqueConstraint(fields=['product', 'shop', 'external_id'], name='unique_product_info'),
+        ]
+
+
+class Parameter(models.Model):
+    name = models.CharField(max_length=40, verbose_name='Название')
+
+    class Meta:
+        verbose_name = 'Имя параметра'
+        verbose_name_plural = "Список имен параметров"
+        ordering = ('-name',)
+
+    def __str__(self):
+        return self.name
+
+
+class ProductParameter(models.Model):
+    product_info = models.ForeignKey(ProductInfo, verbose_name='Информация о продукте',
+                                     related_name='product_parameters', blank=True,
+                                     on_delete=models.CASCADE)
+    parameter = models.ForeignKey(Parameter, verbose_name='Параметр', related_name='product_parameters', blank=True,
+                                  on_delete=models.CASCADE)
+    value = models.CharField(verbose_name='Значение', max_length=100)
+
+    class Meta:
+        verbose_name = 'Параметр'
+        verbose_name_plural = "Список параметров"
+        constraints = [
+            models.UniqueConstraint(fields=['product_info', 'parameter'], name='unique_product_parameter'),
+        ]
 
 
 class Contact(models.Model):
@@ -174,18 +225,22 @@ class Order(models.Model):
 
     class Meta:
         verbose_name = 'Заказ'
-        verbose_name_plural = "Список заказов"
+        verbose_name_plural = "Список заказ"
         ordering = ('-dt',)
 
     def __str__(self):
         return str(self.dt)
+
+    # @property
+    # def sum(self):
+    #     return self.ordered_items.aggregate(total=Sum("quantity"))["total"]
 
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, verbose_name='Заказ', related_name='ordered_items', blank=True,
                               on_delete=models.CASCADE)
 
-    product_info = models.ForeignKey(Product, verbose_name='Информация о продукте', related_name='ordered_items',
+    product_info = models.ForeignKey(ProductInfo, verbose_name='Информация о продукте', related_name='ordered_items',
                                      blank=True,
                                      on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(verbose_name='Количество')

@@ -1,24 +1,50 @@
 @baseUrl = http://localhost:8000
-
 ### Register user
-POST {{baseUrl}}/api/auth/register/
+POST {{baseUrl}}/api/auth/register
 Content-Type: application/json
 
 {
-  "email": "example2@ya.ru",
-  "password": "secret",
+  "email": "andrey@ya.ru",
+  "password": "fewewkUUO",
   "company": "MOS",
   "position": "Инженер",
   "first_name": "Иван",
   "last_name": "Иванов",
-  "username" : "Ivan2000",
-  "is_active":  true
+  "is_active": true
 }
 ### Login user
-POST {{baseUrl}}/api/auth/login/
+POST {{baseUrl}}/api/auth/login
 Content-Type: application/json
 
 {
-  "email": "example2@ya.ru",
-  "password": "secret"
+  "email": "andrey@ya.ru",
+  "password": "fewewkUUO"
 }
+### User datails
+POST  {{baseUrl}}/api/auth/details
+Authorization: Token 299bfae297eda8e73b313309636c3a4b07f1b337
+
+### User login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{ 
+  "email": "andrey@ya.ru",
+  "password": "fewewkUUO"
+}
+### Confirm register user
+POST {{baseUrl}}/api/auth/register/confirm
+Content-Type: application/json
+
+{
+  "email": "andrey@ya.ru",
+  "token": "299bfae297eda8e73b313309636c3a4b07f1b337"
+}
+### Get categories
+GET  {{baseUrl}}/api/categories
+### Get shops
+GET  {{baseUrl}}/api/shops
+### Get basket
+GET  {{baseUrl}}/api/basket
+Authorization: Token 299bfae297eda8e73b313309636c3a4b07f1b337
+

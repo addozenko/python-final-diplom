@@ -1,77 +1,75 @@
 import yaml
-import os
+from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
-from backend.models import Category, Product, Shop
+
+from backend.models import (
+    Shop, 
+    Category,
+    Product,
+    ProductInfo,
+    Parameter,
+    ProductParameter,
+)
+
+from django.db import transaction
 
 class Command(BaseCommand):
-    help = 'Импорт товаров и категорий из shop1.yaml'
+    help = 'Import products from YAML file into Shop/Categories/Products'
 
-    def _load_yaml(self, file_path: str) -> dict:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return yaml.safe_load(f) or {}
-    
-    def _find(self, name, path):
-        for root, dirs, files in os.walk(path):
-            if name in files:
-                return os.path.join(root, name)
-        return None
+    def add_arguments(self, parser):
+        parser.add_argument('yaml_path', type=str, help='Path to YAML file with shop data')
 
+    @transaction.atomic
     def handle(self, *args, **options):
-        path_root = options.get('path_root', '/')
-        yaml_filename = options.get('yaml_filename', 'shop1.yaml')
+        yaml_path = Path(options['yaml_path'])
+        if not yaml_path.exists():
+            raise CommandError(f"YAML file not found: {yaml_path}")
 
-        yaml_path = self._find(yaml_filename, path_root)
-        if not yaml_path:
-            raise CommandError('Файл {} не найден в указанной директории: {}'.format(yaml_filename, path_root))
+        with yaml_path.open('r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
 
-        data = self._load_yaml(yaml_path)
+        # Привязка магазина
+        shop_name = data.get('shop')
+        shop, _ = Shop.objects.get_or_create(name=shop_name)
 
-        shop_name = data.get('shop', 'Shop')
-        categories_data = data.get('categories', [])
-        goods_data = data.get('goods', [])
+        # Категории
+        categories_map = {}
+        for cat in data.get('categories', []):
+            cat_obj, _ = Category.objects.get_or_create(name=cat['name'])
 
-        # Импорт категорий и привязка магазинов к категориям
-        for category_data in categories_data:
-            
-            cat_name = category_data.get('name')
-            cat_id = category_data.get('id')
-            cat_kwargs = {
-                'id' : cat_id,
-                'name' : cat_name,
-            }
-            category, _ = Category.objects.get_or_create(**cat_kwargs)
+            if hasattr(cat_obj, 'shops'):
+                cat_obj.shops.add(shop)
+            categories_map[cat['id']] = cat_obj
 
-            for shop_data in category_data.get('shops', []):
-                shop_name = shop_data.get('name')
-                if not shop_name:
-                    continue
-                shop, _ = Shop.objects.get_or_create(name=shop_name)
-                category.shops.add(shop)
+        # Продукты
+        for goods in data.get('goods', []):
+            category_id = goods['category']
+            category_obj = categories_map.get(category_id)
 
-        # Импорт товаров
-        for good_data in goods_data:
-            name = good_data.get('name')
-            model = good_data.get('model')
-            price = good_data.get('price')
-            price_rrc = good_data.get('price_rrc')
-            quantity = good_data.get('quantity')
-            category_id = good_data.get('category')
-            parameters = good_data.get('parameters')
-            shop = Shop.objects.get(name=shop_name)
-            category = Category.objects.get(id=category_id)
+            product = Product.objects.create(
+                name=goods['name'],
+                category=category_obj
+            )
 
-            product_kwargs = {
-                'category': category, 
-                'shop' : shop,
-                'name': name,
-                'price': price,
-                'price_rrc': price_rrc,
-                'quantity': quantity,
-                'model': model,
-                'parameters': parameters,
-            }
+            product_info = ProductInfo.objects.create(
+                model=goods.get('model', ''),
+                external_id=goods['id'],
+                product=product,
+                shop=shop,
+                quantity=goods.get('quantity', 0),
+                price=goods.get('price', 0),
+                price_rrc=goods.get('price_rrc', 0)
+            )
 
-            Product.objects.create(**product_kwargs)
+            # Параметры
+            for param_name, param_value in goods.get('parameters', {}).items():
+                parameter_obj, _ = Parameter.objects.get_or_create(name=param_name)
 
-        self.stdout.write(self.style.SUCCESS('Импорт завершен'))
+                ProductParameter.objects.create(
+                    product_info=product_info,
+                    parameter=parameter_obj,
+                    value=str(param_value)
+                )
+
+        self.stdout.write(self.style.SUCCESS('Import completed successfully.'))

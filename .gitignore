@@ -67,10 +67,7 @@ coverage.xml
 
 # Django stuff:
 
-
-
-
-*/migrations/*
+*/backend/migrations/*
 .log
 db.sqlite3
 
