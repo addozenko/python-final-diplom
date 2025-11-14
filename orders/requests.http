@@ -4,32 +4,33 @@ POST {{baseUrl}}/api/auth/register
 Content-Type: application/json
 
 {
-  "email": "andrey@ya.ru",
+  "email": "shop2@ya.ru",
   "password": "fewewkUUO",
   "company": "MOS",
   "position": "Инженер",
   "first_name": "Иван",
   "last_name": "Иванов",
-  "is_active": true
+  "is_active": true,
+  "type": "shop"
 }
 ### Login user
 POST {{baseUrl}}/api/auth/login
 Content-Type: application/json
 
 {
-  "email": "andrey@ya.ru",
+  "email": "shop@ya.ru",
   "password": "fewewkUUO"
 }
 ### User datails
 POST  {{baseUrl}}/api/auth/details
-Authorization: Token 299bfae297eda8e73b313309636c3a4b07f1b337
+Authorization: Token 38a3365a3e8eddca99855ea897553d078085fd12
 
 ### User login
 POST {{baseUrl}}/api/auth/login
 Content-Type: application/json
 
 { 
-  "email": "andrey@ya.ru",
+  "email": "shop2@ya.ru",
   "password": "fewewkUUO"
 }
 ### Confirm register user
@@ -37,8 +38,8 @@ POST {{baseUrl}}/api/auth/register/confirm
 Content-Type: application/json
 
 {
-  "email": "andrey@ya.ru",
-  "token": "299bfae297eda8e73b313309636c3a4b07f1b337"
+  "email": "shop@ya.ru",
+  "token": "38a3365a3e8eddca99855ea897553d078085fd12"
 }
 ### Get categories
 GET  {{baseUrl}}/api/categories
@@ -47,4 +48,69 @@ GET  {{baseUrl}}/api/shops
 ### Get basket
 GET  {{baseUrl}}/api/basket
 Authorization: Token 299bfae297eda8e73b313309636c3a4b07f1b337
+### Create basket
+POST   {{baseUrl}}/api/basket
+Authorization: Token 299bfae297eda8e73b313309636c3a4b07f1b337
+Content-Type: application/json
 
+{
+"items": [{ 
+  "product_info": 3,
+  "quantity": "14",
+  "order":2
+}]
+}
+
+### Put basket
+PUT   {{baseUrl}}/api/basket
+Authorization: Token 299bfae297eda8e73b313309636c3a4b07f1b337
+Content-Type: application/json
+
+{
+"items": [{
+  "id":1,
+  "product_info": 3,
+  "quantity": "14",
+  "order":1
+}]
+}
+
+### Delete basket
+DELETE   {{baseUrl}}/api/basket
+Authorization: Token 299bfae297eda8e73b313309636c3a4b07f1b337
+Content-Type: application/json
+
+{
+"items": { 
+  "external_id":1,
+  "model":"apple/iphone/xr",
+  "price":110000,
+  "price_rrc":116990,
+  "quantity":
+}
+}
+
+
+### Update partner
+POST   {{baseUrl}}/api/partner/update
+Authorization: Token 173165cfb741e3575ff2818fcc4b3137c3517821
+Content-Type: application/json
+
+{
+"goods": { 
+  "external_id":1,
+  "model":"apple/iphone/xr",
+  "price":110000,
+  "price_rrc":116990,
+  "quantity":1,
+  "shop_id":1
+},
+"url": ,
+"categories": "Смартфоны"
+}
+
+
+### Update partner
+GET   {{baseUrl}}/api/partner/state
+Authorization: Token 173165cfb741e3575ff2818fcc4b3137c3517821
+Content-Type: application/json

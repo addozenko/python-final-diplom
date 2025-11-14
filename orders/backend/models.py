@@ -231,10 +231,6 @@ class Order(models.Model):
     def __str__(self):
         return str(self.dt)
 
-    # @property
-    # def sum(self):
-    #     return self.ordered_items.aggregate(total=Sum("quantity"))["total"]
-
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, verbose_name='Заказ', related_name='ordered_items', blank=True,
@@ -275,7 +271,6 @@ class ConfirmEmailToken(models.Model):
         verbose_name=_("When was this token generated")
     )
 
-    # Key field, though it is not the primary key of the model
     key = models.CharField(
         _("Key"),
         max_length=64,
